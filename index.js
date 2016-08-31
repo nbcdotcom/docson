@@ -31,6 +31,7 @@ var signatureTemplate;
 var source;
 var stack = [];
 var boxes=[];
+var requests = {};
 
 var style=document.createElement("style");
 style.textContent=fs.readFileSync(__dirname+"/css/docson.css","utf8");
@@ -437,7 +438,8 @@ docson.doc = function(element, schema, ref, baseUrl) {
             });
         };
 
-        var resolveRefsReentrant = function(schema){
+        var resolveRefsReentrant = function(schema, basePath){
+            if(basePath === undefined) basePath='';
             traverse(schema).forEach(function(item) {
                 // Fix Swagger weird generation for array.
                 if(item && item.$ref == "array") {
@@ -466,7 +468,9 @@ docson.doc = function(element, schema, ref, baseUrl) {
                         //External reference, fetch it.
                         var segments = item.split("#");
                         refs[item] = null;
-                        var p = $.get(segments[0]).then(function(content) {
+                        var url = segments[0];
+                        var request = requests[url] = requests[url] || $.get(url);
+                        var p = request.then(function(content) {
                             if(typeof content != "object") {
                                 try {
                                     content = JSON.parse(content);
@@ -475,7 +479,7 @@ docson.doc = function(element, schema, ref, baseUrl) {
                                 }
                             }
                             if(content) {
-                                refs[item] = content;
+                                refs[item] = jsonpointer.get(content, segments[1]);;
                                 renderBox();
                                 resolveRefsReentrant(content);
                             }
@@ -485,7 +489,9 @@ docson.doc = function(element, schema, ref, baseUrl) {
                         //Local to this server, fetch relative
                         var segments = item.split("#");
                         refs[item] = null;
-                        var p = $.get(baseUrl + segments[0]).then(function(content) {
+                        var url = baseUrl + basePath + segments[0];
+                        var request = requests[url] = requests[url] || $.get(url);
+                        var p = request.then(function(content) {
                             if(typeof content != "object") {
                                 try {
                                     content = JSON.parse(content);
@@ -494,9 +500,10 @@ docson.doc = function(element, schema, ref, baseUrl) {
                                 }
                             }
                             if(content) {
-                                refs[item] = content;
+                                refs[item] = jsonpointer.get(content, segments[1]);;
                                 renderBox();
-                                resolveRefsReentrant(content);
+                                var match = segments[0].match(/.+\//);
+                                resolveRefsReentrant(content, basePath + (match ? match[0] : ''));
                             }
                         });
                     }
