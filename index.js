@@ -438,8 +438,7 @@ docson.doc = function(element, schema, ref, baseUrl) {
             });
         };
 
-        var resolveRefsReentrant = function(schema, basePath){
-            if(basePath === undefined) basePath='';
+        var resolveRefsReentrant = function(schema){
             traverse(schema).forEach(function(item) {
                 // Fix Swagger weird generation for array.
                 if(item && item.$ref == "array") {
@@ -489,7 +488,7 @@ docson.doc = function(element, schema, ref, baseUrl) {
                         //Local to this server, fetch relative
                         var segments = item.split("#");
                         refs[item] = null;
-                        var url = baseUrl + basePath + segments[0];
+                        var url = baseUrl + segments[0];
                         var request = requests[url] = requests[url] || $.get(url);
                         var p = request.then(function(content) {
                             if(typeof content != "object") {
@@ -502,8 +501,7 @@ docson.doc = function(element, schema, ref, baseUrl) {
                             if(content) {
                                 refs[item] = jsonpointer.get(content, segments[1]);;
                                 renderBox();
-                                var match = segments[0].match(/.+\//);
-                                resolveRefsReentrant(content, basePath + (match ? match[0] : ''));
+                                resolveRefsReentrant(content);
                             }
                         });
                     }
