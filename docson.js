@@ -26,7 +26,6 @@ define(["lib/jquery", "lib/handlebars", "lib/highlight", "lib/jsonpointer", "lib
     var source;
     var stack = [];
     var boxes=[];
-    var requests = {};
 
     Handlebars.registerHelper('scope', function(schema, options) {
         var result;
@@ -434,8 +433,7 @@ define(["lib/jquery", "lib/handlebars", "lib/highlight", "lib/jsonpointer", "lib
                 });
             };
 
-            var resolveRefsReentrant = function(schema, basePath){
-                if(basePath === undefined) basePath='';
+            var resolveRefsReentrant = function(schema){
                 traverse(schema).forEach(function(item) {
                     // Fix Swagger weird generation for array.
                     if(item && item.$ref == "array") {
@@ -464,9 +462,7 @@ define(["lib/jquery", "lib/handlebars", "lib/highlight", "lib/jsonpointer", "lib
                             //External reference, fetch it.
                             var segments = item.split("#");
                             refs[item] = null;
-                            var url = segments[0];
-                            var request = requests[url] = requests[url] || $.get(url);
-                            var p = request.then(function(content) {
+                            var p = $.get(segments[0]).then(function(content) {
                                 if(typeof content != "object") {
                                     try {
                                         content = JSON.parse(content);
@@ -485,9 +481,7 @@ define(["lib/jquery", "lib/handlebars", "lib/highlight", "lib/jsonpointer", "lib
                             //Local to this server, fetch relative
                             var segments = item.split("#");
                             refs[item] = null;
-                            var url = baseUrl + basePath + segments[0];
-                            var request = requests[url] = requests[url] || $.get(url);
-                            var p = request.then(function(content) {
+                            var p = $.get(baseUrl + segments[0]).then(function(content) {
                                 if(typeof content != "object") {
                                     try {
                                         content = JSON.parse(content);
@@ -498,8 +492,7 @@ define(["lib/jquery", "lib/handlebars", "lib/highlight", "lib/jsonpointer", "lib
                                 if(content) {
                                     refs[item] = jsonpointer.get(content, segments[1]);
                                     renderBox();
-                                    var match = segments[0].match(/.+\//);
-                                    resolveRefsReentrant(content, basePath + (match ? match[0] : ''));
+                                    resolveRefsReentrant(content);
                                 }
                             });
                         }
